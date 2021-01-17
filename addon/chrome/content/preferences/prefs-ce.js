@@ -1,10 +1,7 @@
 const {AppConstants} = ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
 
 
-// connectedCallback do tabs cria um elemento spacer de cada lado e se tiver mais de um antes das tab faz o tabbox não conseguir
-// identificar o selectedIndex. Para evitar múltiplas execuções do connectedCallback, resultado do carregamento via overlay seguido
-// de inserção no content binding, é só pular enquanto não detectar que o binding root (prefwindow) foi definido, pois ele é quem
-// estrutura o content binding.
+//delay connectedCallback() of tabs till prefwindow is defined so it won't be run multiple times and cause trouble.
 customElements.get('tabs').prototype.delayConnectedCallback = function () {
   return customElements.get('prefwindow') ? false : true;
 };
@@ -1066,12 +1063,9 @@ class PrefWindow extends MozXULElement {
 
     this.hasAttribute("dlgbuttons") ? '' : this.setAttribute("dlgbuttons", "accept,cancel");
     this.hasAttribute("persist") ? '' : this.setAttribute("persist", "lastSelected screenX screenY");
-    // this.hasAttribute("closebuttonlabel") ? '' : this.setAttribute("closebuttonlabel", "&preferencesCloseButton.label;");
-    // this.hasAttribute("closebuttonaccesskey") ? '' : this.setAttribute("closebuttonaccesskey", "&preferencesCloseButton.accesskey;");
     this.hasAttribute("closebuttonlabel") ? '' : this.setAttribute("closebuttonlabel", MozXULElement.parseXULToFragment(`<div attr="&uiTour.infoPanel.close;" />`,["chrome://browser/locale/browser.dtd"]).childNodes[0].attributes[0].value);
     this.hasAttribute("closebuttonaccesskey") ? '' : this.setAttribute("closebuttonaccesskey", "C");
     this.hasAttribute("role") ? '' : this.setAttribute("role", "dialog");
-    // this.hasAttribute("title") ? '' : this.setAttribute("title", "&preferencesDefaultTitleWin.title;");
     this.hasAttribute("title") ? '' : this.setAttribute("title", MozXULElement.parseXULToFragment(`<div attr="&preferencesCmd2.label;" />`,["chrome://browser/locale/browser.dtd"]).childNodes[0].attributes[0].value);
 
     let global = Components.utils.getGlobalForObject(this);
@@ -1580,14 +1574,8 @@ class PrefWindow extends MozXULElement {
 
       var obs = new OverlayLoadObserver(aPaneElement);
 
-      //Pane overlay have to be move to earlier stage to load properly but not without issue see ln 601
-      // document.loadOverlay(aPaneElement.src, obs);
+      //Pane overlay have to be move to earlier stage to load properly 
 
-      // Components.utils.import("chrome://tabmixplus/content/ChromeManifest.jsm");
-      // Components.utils.import("chrome://tabmixplus/content/Overlays.jsm");
-
-      // let ov = new Overlays(new ChromeManifest(),document.defaultView);
-      // ov.load(aPaneElement.src);
       obs.observe();
 
     } else
