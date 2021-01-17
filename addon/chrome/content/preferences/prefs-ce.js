@@ -1,13 +1,12 @@
-/* globals CustomEvent dump KeyEvent Node openDialog */
-/* exported PrefWindow */
-/* eslint no-var: 2, prefer-const: 2, no-new-func: 0, class-methods-use-this: 0 */
-"use strict";
-
 const {AppConstants} = ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
 
-//delay connectedCallback() of tabs till prefwindow is defined so it won't be run multiple times and cause trouble.
-customElements.get('tabs').prototype.delayConnectedCallback = function() {
-  return !customElements.get('prefwindow');
+
+// connectedCallback do tabs cria um elemento spacer de cada lado e se tiver mais de um antes das tab faz o tabbox não conseguir
+// identificar o selectedIndex. Para evitar múltiplas execuções do connectedCallback, resultado do carregamento via overlay seguido
+// de inserção no content binding, é só pular enquanto não detectar que o binding root (prefwindow) foi definido, pois ele é quem
+// estrutura o content binding.
+customElements.get('tabs').prototype.delayConnectedCallback = function () {
+  return customElements.get('prefwindow') ? false : true;
 };
 
 class Preferences extends MozXULElement {
@@ -50,14 +49,14 @@ class Preferences extends MozXULElement {
   }
 
   get instantApply() {
-    const doc = document.documentElement;
-    return this.type == "child" ? doc.instantApply :
-      doc.instantApply || this.rootBranch.getBoolPref("browser.preferences.instantApply");
+    var doc = document.documentElement;
+    return this.type == "child" ? doc.instantApply
+                                : doc.instantApply || this.rootBranch.getBoolPref("browser.preferences.instantApply");
   }
 
   observe(aSubject, aTopic, aData) {
-    for (let i = 0; i < this.childNodes.length; ++i) {
-      const preference = this.childNodes[i];
+    for (var i = 0; i < this.childNodes.length; ++i) {
+      var preference = this.childNodes[i];
       if (preference.name == aData) {
         preference.value = preference.valueFromPreferences;
       }
@@ -72,8 +71,8 @@ class Preferences extends MozXULElement {
     // being initialized so we wait and call updateElements on all of them
     // once the last one has been constructed. See bugs 997570 and 992185.
 
-    const elements = this.getElementsByTagName("preference");
-    for (const element of elements) {
+    var elements = this.getElementsByTagName("preference");
+    for (let element of elements) {
       element.updateElements();
     }
 
@@ -83,7 +82,7 @@ class Preferences extends MozXULElement {
   fireChangedEvent(aPreference) {
     // Value changed, synthesize an event
     try {
-      const event = document.createEvent("Events");
+      var event = document.createEvent("Events");
       event.initEvent("change", true, true);
       aPreference.dispatchEvent(event);
     } catch (e) {
@@ -98,7 +97,7 @@ class Preference extends MozXULElement {
 
     this.disconnectedCallback = this.disconnectedCallback.bind(this);
 
-    this.addEventListener("change", () => {
+    this.addEventListener("change", (event) => {
       this.updateElements();
     });
   }
@@ -126,20 +125,20 @@ class Preference extends MozXULElement {
     // from any previous opens of a child dialog instead of the value from
     // preferences, to pick up any edits a user may have made.
 
-    const secMan = Cc["@mozilla.org/scriptsecuritymanager;1"]
-        .getService(Ci.nsIScriptSecurityManager);
+    var secMan = Cc["@mozilla.org/scriptsecuritymanager;1"]
+                .getService(Ci.nsIScriptSecurityManager);
     if (this.preferences.type == "child" &&
         !this.instantApply && window.opener &&
         secMan.isSystemPrincipal(window.opener.document.nodePrincipal)) {
-      const pdoc = window.opener.document;
+      var pdoc = window.opener.document;
 
       // Try to find a preference element for the same preference.
-      let preference = null;
-      const parentPreferences = pdoc.getElementsByTagName("preferences");
-      for (let k = 0; (k < parentPreferences.length && !preference); ++k) {
-        const parentPrefs = parentPreferences[k]
-            .getElementsByAttribute("name", this.name);
-        for (let l = 0; (l < parentPrefs.length && !preference); ++l) {
+      var preference = null;
+      var parentPreferences = pdoc.getElementsByTagName("preferences");
+      for (var k = 0; (k < parentPreferences.length && !preference); ++k) {
+        var parentPrefs = parentPreferences[k]
+                                .getElementsByAttribute("name", this.name);
+        for (var l = 0; (l < parentPrefs.length && !preference); ++l) {
           if (parentPrefs[l].localName == "preference")
             preference = parentPrefs[l];
         }
@@ -250,12 +249,12 @@ class Preference extends MozXULElement {
     if (!this.id)
       return val;
 
-    const elements = document.getElementsByAttribute("preference", this.id);
-    for (let i = 0; i < elements.length; ++i) {
+    var elements = document.getElementsByAttribute("preference", this.id);
+    for (var i = 0; i < elements.length; ++i) {
       elements[i].disabled = val;
 
-      const labels = document.getElementsByAttribute("control", elements[i].id);
-      for (let j = 0; j < labels.length; ++j)
+      var labels = document.getElementsByAttribute("control", elements[i].id);
+      for (var j = 0; j < labels.length; ++j)
         labels[j].disabled = val;
     }
 
@@ -275,12 +274,12 @@ class Preference extends MozXULElement {
     if (!this.id)
       return val;
 
-    const elements = document.getElementsByAttribute("preference", this.id);
-    for (let i = 0; i < elements.length; ++i) {
+    var elements = document.getElementsByAttribute("preference", this.id);
+    for (var i = 0; i < elements.length; ++i) {
       elements[i].tabIndex = val;
 
-      const labels = document.getElementsByAttribute("control", elements[i].id);
-      for (let j = 0; j < labels.length; ++j)
+      var labels = document.getElementsByAttribute("control", elements[i].id);
+      for (var j = 0; j < labels.length; ++j)
         labels[j].tabIndex = val;
     }
 
@@ -294,7 +293,7 @@ class Preference extends MozXULElement {
 
   get defaultValue() {
     this._useDefault = true;
-    const val = this.valueFromPreferences;
+    var val = this.valueFromPreferences;
     this._useDefault = false;
     return val;
   }
@@ -307,29 +306,29 @@ class Preference extends MozXULElement {
     try {
       // Force a resync of value with preferences.
       switch (this.type) {
-        case "int":
-          return this._branch.getIntPref(this.name);
-        case "bool": {
-          const val = this._branch.getBoolPref(this.name);
-          return this.inverted ? !val : val;
-        }
-        case "wstring":
-          return this._branch
-              .getComplexValue(this.name, Ci.nsIPrefLocalizedString)
-              .data;
-        case "string":
-        case "unichar":
-          return this._branch.getStringPref(this.name);
-        case "fontname": {
-          const family = this._branch.getStringPref(this.name);
-          const fontEnumerator = Cc["@mozilla.org/gfx/fontenumerator;1"]
-              .createInstance(Ci.nsIFontEnumerator);
-          return fontEnumerator.getStandardFamilyName(family);
-        }
-        case "file":
-          return this._branch.getComplexValue(this.name, Ci.nsIFile);
-        default:
-          this._reportUnknownType();
+      case "int":
+        return this._branch.getIntPref(this.name);
+      case "bool":
+        var val = this._branch.getBoolPref(this.name);
+        return this.inverted ? !val : val;
+      case "wstring":
+        return this._branch
+                   .getComplexValue(this.name, Ci.nsIPrefLocalizedString)
+                   .data;
+      case "string":
+      case "unichar":
+        return this._branch.getStringPref(this.name);
+      case "fontname":
+        var family = this._branch.getStringPref(this.name);
+        var fontEnumerator = Cc["@mozilla.org/gfx/fontenumerator;1"]
+                               .createInstance(Ci.nsIFontEnumerator);
+        return fontEnumerator.getStandardFamilyName(family);
+      case "file":
+        var f = this._branch
+                    .getComplexValue(this.name, Ci.nsIFile);
+        return f;
+      default:
+        this._reportUnknownType();
       }
     } catch (e) { }
     return null;
@@ -348,42 +347,39 @@ class Preference extends MozXULElement {
 
     // Force a resync of preferences with value.
     switch (this.type) {
-      case "int":
-        this.preferences.rootBranch.setIntPref(this.name, val);
-        break;
-      case "bool":
-        this.preferences.rootBranch.setBoolPref(this.name, this.inverted ? !val : val);
-        break;
-      case "wstring": {
-        const pls = Cc["@mozilla.org/pref-localizedstring;1"]
-            .createInstance(Ci.nsIPrefLocalizedString);
-        pls.data = val;
-        this.preferences.rootBranch
-            .setComplexValue(this.name, Ci.nsIPrefLocalizedString, pls);
-        break;
-      }
-      case "string":
-      case "unichar":
-      case "fontname":
-        this.preferences.rootBranch.setStringPref(this.name, val);
-        break;
-      case "file": {
-        let lf;
-        if (typeof (val) == "string") {
-          lf = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
-          lf.persistentDescriptor = val;
-          if (!lf.exists()) {
-            lf.initWithPath(val);
-          }
-        } else {
-          lf = val.QueryInterface(Ci.nsIFile);
-        }
-        this.preferences.rootBranch
-            .setComplexValue(this.name, Ci.nsIFile, lf);
-        break;
-      }
-      default:
-        this._reportUnknownType();
+    case "int":
+      this.preferences.rootBranch.setIntPref(this.name, val);
+      break;
+    case "bool":
+      this.preferences.rootBranch.setBoolPref(this.name, this.inverted ? !val : val);
+      break;
+    case "wstring":
+      var pls = Cc["@mozilla.org/pref-localizedstring;1"]
+                  .createInstance(Ci.nsIPrefLocalizedString);
+      pls.data = val;
+      this.preferences.rootBranch
+          .setComplexValue(this.name, Ci.nsIPrefLocalizedString, pls);
+      break;
+    case "string":
+    case "unichar":
+    case "fontname":
+      this.preferences.rootBranch.setStringPref(this.name, val);
+      break;
+    case "file":
+      var lf;
+      if (typeof(val) == "string") {
+        lf = Cc["@mozilla.org/file/local;1"]
+               .createInstance(Ci.nsIFile);
+        lf.persistentDescriptor = val;
+        if (!lf.exists())
+          lf.initWithPath(val);
+      } else
+        lf = val.QueryInterface(Ci.nsIFile);
+      this.preferences.rootBranch
+          .setComplexValue(this.name, Ci.nsIFile, lf);
+      break;
+    default:
+      this._reportUnknownType();
     }
     if (!this.batching)
       this.preferences.service.savePrefFile(null);
@@ -406,9 +402,9 @@ class Preference extends MozXULElement {
   }
 
   _reportUnknownType() {
-    const consoleService = Cc["@mozilla.org/consoleservice;1"]
-        .getService(Ci.nsIConsoleService);
-    const msg = "<preference> with id='" + this.id + "' and name='" +
+    var consoleService = Cc["@mozilla.org/consoleservice;1"]
+                           .getService(Ci.nsIConsoleService);
+    var msg = "<preference> with id='" + this.id + "' and name='" +
               this.name + "' has unknown type '" + this.type + "'.";
     consoleService.logStringMessage(msg);
   }
@@ -420,20 +416,20 @@ class Preference extends MozXULElement {
     if (!this.isElementEditable(aElement))
       return;
 
-    let rv;
+    var rv = undefined;
     if (aElement.hasAttribute("onsyncfrompreference")) {
       // Value changed, synthesize an event
       try {
-        const event = document.createEvent("Events");
+        var event = document.createEvent("Events");
         event.initEvent("syncfrompreference", true, true);
-        const f = new Function("event",
-          aElement.getAttribute("onsyncfrompreference"));
+        var f = new Function("event",
+                             aElement.getAttribute("onsyncfrompreference"));
         rv = f.call(aElement, event);
       } catch (e) {
         Cu.reportError(e);
       }
     }
-    let val = rv;
+    var val = rv;
     if (val === undefined)
       val = this.instantApply ? this.valueFromPreferences : this.value;
     // if the preference is marked for reset, show default value in UI
@@ -471,11 +467,11 @@ class Preference extends MozXULElement {
     if (aElement.hasAttribute("onsynctopreference")) {
       // Value changed, synthesize an event
       try {
-        const event = document.createEvent("Events");
+        var event = document.createEvent("Events");
         event.initEvent("synctopreference", true, true);
-        const f = new Function("event",
-          aElement.getAttribute("onsynctopreference"));
-        const rv = f.call(aElement, event);
+        var f = new Function("event",
+                             aElement.getAttribute("onsynctopreference"));
+        var rv = f.call(aElement, event);
         if (rv !== undefined)
           return rv;
       } catch (e) {
@@ -494,34 +490,32 @@ class Preference extends MozXULElement {
         return element[attribute];
       return element.getAttribute(attribute);
     }
-    let value;
-    if (aElement.localName == "checkbox") {
-      value = getValue(aElement, "checked");
-    } else if (aElement.localName == "colorpicker") {
+    if (aElement.localName == "checkbox")
+      var value = getValue(aElement, "checked");
+    else if (aElement.localName == "colorpicker")
       value = getValue(aElement, "color");
-    } else {
+    else
       value = getValue(aElement, "value");
-    }
 
     switch (this.type) {
-      case "int":
-        return parseInt(value, 10) || 0;
-      case "bool":
-        return typeof (value) == "boolean" ? value : value == "true";
+    case "int":
+      return parseInt(value, 10) || 0;
+    case "bool":
+      return typeof(value) == "boolean" ? value : value == "true";
     }
     return value;
   }
 
   isElementEditable(aElement) {
     switch (aElement.localName) {
-      case "checkbox":
-      case "colorpicker":
-      case "radiogroup":
-      case "input":
-      case "richlistitem":
-      case "richlistbox":
-      case "menulist":
-        return true;
+    case "checkbox":
+    case "colorpicker":
+    case "radiogroup":
+    case "input":
+    case "richlistitem":
+    case "richlistbox":
+    case "menulist":
+      return true;
     }
     return aElement.getAttribute("preference-editable") == "true";
   }
@@ -532,8 +526,8 @@ class Preference extends MozXULElement {
 
     // This "change" event handler tracks changes made to preferences by
     // sources other than the user in this window.
-    const elements = document.getElementsByAttribute("preference", this.id);
-    for (let i = 0; i < elements.length; ++i)
+    var elements = document.getElementsByAttribute("preference", this.id);
+    for (var i = 0; i < elements.length; ++i)
       this.setElementValue(elements[i]);
   }
 }
@@ -542,7 +536,7 @@ class PrefPane extends MozXULElement {
   constructor() {
     super();
 
-    this.addEventListener("command", event => {
+    this.addEventListener("command", (event) => {
       // This "command" event handler tracks changes made to preferences by
       // the user in this window.
       if (event.sourceEvent)
@@ -550,31 +544,31 @@ class PrefPane extends MozXULElement {
       this.userChangedValue(event.target);
     });
 
-    this.addEventListener("select", event => {
+    this.addEventListener("select", (event) => {
       // This "select" event handler tracks changes made to colorpicker
       // preferences by the user in this window.
       if (event.target.localName == "colorpicker")
         this.userChangedValue(event.target);
     });
 
-    this.addEventListener("change", event => {
+    this.addEventListener("change", (event) => {
       // This "change" event handler tracks changes made to preferences by
       // the user in this window.
       this.userChangedValue(event.target);
     });
 
-    this.addEventListener("input", event => {
+    this.addEventListener("input", (event) => {
       // This "input" event handler tracks changes made to preferences by
       // the user in this window.
       this.userChangedValue(event.target);
     });
 
-    this.addEventListener("paneload", () => {
+    this.addEventListener("paneload", (event) => {
       // Initialize all values from preferences.
-      const elements = this.preferenceElements;
-      for (let i = 0; i < elements.length; ++i) {
+      var elements = this.preferenceElements;
+      for (var i = 0; i < elements.length; ++i) {
         try {
-          const preference = this.preferenceForElement(elements[i]);
+          var preference = this.preferenceForElement(elements[i]);
           preference.setElementValue(elements[i]);
         } catch (e) {
           dump("*** No preference found for " + elements[i].getAttribute("preference") + "\n");
@@ -584,7 +578,9 @@ class PrefPane extends MozXULElement {
   }
 
   static get inheritedAttributes() {
-    return {".content-box": "flex"};
+    return {
+      ".content-box": "flex",
+    };
   }
 
   get fragment() {
@@ -602,19 +598,19 @@ class PrefPane extends MozXULElement {
       return;
     }
 
-    // PrefPane overlay have to be move earlier to here otherwise tabs elements won't load properly. see ln 1551
-    // But this may be the cause of EMSG <Uncaught (in promise) undefined> shows up
-    if (this.src) {
+    //PrefPane overlay have to be move earlier to here otherwise tabs elements won't load properly. see ln 1551
+    //But this may be the cause of EMSG <Uncaught (in promise) undefined> shows up 
+    if(this.src){
       Components.utils.import("chrome://tabmixplus/content/ChromeManifest.jsm");
       Components.utils.import("chrome://tabmixplus/content/Overlays.jsm");
 
-      const ov = new Overlays(new ChromeManifest(), window.document.defaultView);
+      let ov = new Overlays(new ChromeManifest(),window.document.defaultView);
       ov.load(this.src);
     }
 
-    const fragment = this.fragment;
-    const contentBox = fragment.querySelector('.content-box');
-    const childNodes = [...this.childNodes];
+    let fragment = this.fragment;
+    let contentBox = fragment.querySelector('.content-box');
+    let childNodes = [...this.childNodes];
     this.appendChild(fragment);
     contentBox.append(...childNodes);
     this.initializeAttributeInheritance();
@@ -672,9 +668,9 @@ class PrefPane extends MozXULElement {
 
   get helpTopic() {
     // if there are tabs, and the selected tab provides a helpTopic, return that
-    const box = this.getElementsByTagName("tabbox");
+    var box = this.getElementsByTagName("tabbox");
     if (box[0]) {
-      const tab = box[0].selectedTab;
+      var tab = box[0].selectedTab;
       if (tab && tab.hasAttribute("helpTopic"))
         return tab.getAttribute("helpTopic");
     }
@@ -693,7 +689,7 @@ class PrefPane extends MozXULElement {
   }
 
   get DeferredTask() {
-    const module = {};
+    let module = {};
     ChromeUtils.import("resource://gre/modules/DeferredTask.jsm", module);
     Object.defineProperty(this, "DeferredTask", {
       configurable: true,
@@ -705,7 +701,7 @@ class PrefPane extends MozXULElement {
   }
 
   get contentHeight() {
-    let targetHeight = parseInt(window.getComputedStyle(this._content).height);
+    var targetHeight = parseInt(window.getComputedStyle(this._content).height);
     targetHeight += parseInt(window.getComputedStyle(this._content).marginTop);
     targetHeight += parseInt(window.getComputedStyle(this._content).marginBottom);
     return targetHeight;
@@ -717,16 +713,16 @@ class PrefPane extends MozXULElement {
       this._finalizeDeferredElements();
     }
 
-    const preferences = this.preferences;
-    for (let i = 0; i < preferences.length; ++i) {
-      const preference = preferences[i];
+    var preferences = this.preferences;
+    for (var i = 0; i < preferences.length; ++i) {
+      var preference = preferences[i];
       preference.batching = true;
       preference.valueFromPreferences = preference.value;
       preference.batching = false;
     }
     if (aFlushToDisk) {
-      const psvc = Cc["@mozilla.org/preferences-service;1"]
-          .getService(Ci.nsIPrefService);
+      var psvc = Cc["@mozilla.org/preferences-service;1"]
+                   .getService(Ci.nsIPrefService);
       psvc.savePrefFile(null);
     }
   }
@@ -736,24 +732,24 @@ class PrefPane extends MozXULElement {
   }
 
   getPreferenceElement(aStartElement) {
-    let temp = aStartElement;
+    var temp = aStartElement;
     while (temp && temp.nodeType == Node.ELEMENT_NODE &&
            !temp.hasAttribute("preference"))
       temp = temp.parentNode;
     return temp && temp.nodeType == Node.ELEMENT_NODE ?
-      temp : aStartElement;
+           temp : aStartElement;
   }
 
   _deferredValueUpdate(aElement) {
     delete aElement._deferredValueUpdateTask;
-    const preference = document.getElementById(aElement.getAttribute("preference"));
-    const prefVal = preference.getElementValue(aElement);
+    let preference = document.getElementById(aElement.getAttribute("preference"));
+    let prefVal = preference.getElementValue(aElement);
     preference.value = prefVal;
     this._deferredValueUpdateElements.delete(aElement);
   }
 
   _finalizeDeferredElements() {
-    for (const el of this._deferredValueUpdateElements) {
+    for (let el of this._deferredValueUpdateElements) {
       if (el._deferredValueUpdateTask) {
         el._deferredValueUpdateTask.finalize();
       }
@@ -761,11 +757,11 @@ class PrefPane extends MozXULElement {
   }
 
   userChangedValue(aElement) {
-    const element = this.getPreferenceElement(aElement);
+    let element = this.getPreferenceElement(aElement);
     if (element.hasAttribute("preference")) {
       if (element.getAttribute("delayprefsave") != "true") {
-        const preference = document.getElementById(element.getAttribute("preference"));
-        const prefVal = preference.getElementValue(element);
+        var preference = document.getElementById(element.getAttribute("preference"));
+        var prefVal = preference.getElementValue(element);
         preference.value = prefVal;
       } else {
         if (!element._deferredValueUpdateTask) {
@@ -782,6 +778,10 @@ class PrefPane extends MozXULElement {
 }
 
 class PaneButton extends customElements.get('radio') {
+  constructor() {
+    super();
+  }
+
   static get thisInheritedAttributes() {
     return {
       ".paneButtonIcon": "src",
@@ -791,7 +791,7 @@ class PaneButton extends customElements.get('radio') {
 
   static get inheritedAttributes() {
     return Object.assign({}, super.inheritedAttributes,
-      PaneButton.thisInheritedAttributes);
+        PaneButton.thisInheritedAttributes);
   }
 
   /**
@@ -860,7 +860,7 @@ class PaneButton extends customElements.get('radio') {
   }
 
   set label(val) {
-    this.setAttribute('label', val);
+    this.setAttribute('label',val);
     return val;
   }
 
@@ -869,7 +869,7 @@ class PaneButton extends customElements.get('radio') {
   }
 
   set crop(val) {
-    this.setAttribute('crop', val);
+    this.setAttribute('crop',val);
     return val;
   }
 
@@ -878,7 +878,7 @@ class PaneButton extends customElements.get('radio') {
   }
 
   set image(val) {
-    this.setAttribute('image', val);
+    this.setAttribute('image',val);
     return val;
   }
 
@@ -887,7 +887,7 @@ class PaneButton extends customElements.get('radio') {
   }
 
   set command(val) {
-    this.setAttribute('command', val);
+    this.setAttribute('command',val);
     return val;
   }
 
@@ -900,7 +900,7 @@ class PaneButton extends customElements.get('radio') {
     this.setAttribute("accesskey", val);
     // If there is a label, change the accesskey on the labelElement
     // if it's also set there
-    const labelElement = document.getElementsByAttribute("control", this.id)[0];
+    let labelElement = document.getElementsByAttribute("control", this.id)[0];
     if (labelElement) {
       labelElement.setAttribute("accesskey", val);
     }
@@ -914,44 +914,44 @@ class PrefWindow extends MozXULElement {
 
     this.disconnectedCallback = this.disconnectedCallback.bind(this);
 
-    this.addEventListener("dialogaccept", () => {
+    this.addEventListener("dialogaccept", (event) => {
       if (!this._fireEvent("beforeaccept", this)) {
         return false;
       }
 
-      const secMan = Cc["@mozilla.org/scriptsecuritymanager;1"]
-          .getService(Ci.nsIScriptSecurityManager);
+      var secMan = Cc["@mozilla.org/scriptsecuritymanager;1"]
+                  .getService(Ci.nsIScriptSecurityManager);
       if (this.type == "child" && window.opener &&
           secMan.isSystemPrincipal(window.opener.document.nodePrincipal)) {
-        const pdocEl = window.opener.document.documentElement;
+        var pdocEl = window.opener.document.documentElement;
         if (pdocEl.instantApply) {
-          const panes = this.preferencePanes;
+          let panes = this.preferencePanes;
           for (let i = 0; i < panes.length; ++i)
             panes[i].writePreferences(true);
         } else {
           // Clone all the preferences elements from the child document and
           // insert them into the pane collection of the parent.
-          const pdoc = window.opener.document;
+          var pdoc = window.opener.document;
           if (pdoc.documentElement.localName == "prefwindow") {
-            const currentPane = pdoc.documentElement.currentPane;
-            const id = window.location.href + "#childprefs";
-            let childPrefs = pdoc.getElementById(id);
+            var currentPane = pdoc.documentElement.currentPane;
+            var id = window.location.href + "#childprefs";
+            var childPrefs = pdoc.getElementById(id);
             if (!childPrefs) {
               childPrefs = pdoc.createXULElement("preferences");
               currentPane.appendChild(childPrefs);
               childPrefs.id = id;
             }
-            const panes = this.preferencePanes;
+            let panes = this.preferencePanes;
             for (let i = 0; i < panes.length; ++i) {
-              const preferences = panes[i].preferences;
-              for (let j = 0; j < preferences.length; ++j) {
+              var preferences = panes[i].preferences;
+              for (var j = 0; j < preferences.length; ++j) {
                 // Try to find a preference element for the same preference.
-                let preference = null;
-                const parentPreferences = pdoc.getElementsByTagName("preferences");
-                for (let k = 0; (k < parentPreferences.length && !preference); ++k) {
-                  const parentPrefs = parentPreferences[k]
-                      .getElementsByAttribute("name", preferences[j].name);
-                  for (let l = 0; (l < parentPrefs.length && !preference); ++l) {
+                var preference = null;
+                var parentPreferences = pdoc.getElementsByTagName("preferences");
+                for (var k = 0; (k < parentPreferences.length && !preference); ++k) {
+                  var parentPrefs = parentPreferences[k]
+                                       .getElementsByAttribute("name", preferences[j].name);
+                  for (var l = 0; (l < parentPrefs.length && !preference); ++l) {
                     if (parentPrefs[l].localName == "preference")
                       preference = parentPrefs[l];
                   }
@@ -960,8 +960,8 @@ class PrefWindow extends MozXULElement {
                   // No matching preference in the parent window.
                   preference = pdoc.createXULElement("preference");
                   childPrefs.appendChild(preference);
-                  preference.name = preferences[j].name;
-                  preference.type = preferences[j].type;
+                  preference.name     = preferences[j].name;
+                  preference.type     = preferences[j].type;
                   preference.inverted = preferences[j].inverted;
                   preference.readonly = preferences[j].readonly;
                   preference.disabled = preferences[j].disabled;
@@ -972,33 +972,33 @@ class PrefWindow extends MozXULElement {
           }
         }
       } else {
-        const panes = this.preferencePanes;
-        for (let i = 0; i < panes.length; ++i)
+        let panes = this.preferencePanes;
+        for (var i = 0; i < panes.length; ++i)
           panes[i].writePreferences(false);
 
-        const psvc = Cc["@mozilla.org/preferences-service;1"]
-            .getService(Ci.nsIPrefService);
+        let psvc = Cc["@mozilla.org/preferences-service;1"]
+                     .getService(Ci.nsIPrefService);
         psvc.savePrefFile(null);
       }
 
       return true;
     });
 
-    this.addEventListener("command", event => {
+    this.addEventListener("command", (event) => {
       if (event.originalTarget.hasAttribute("pane")) {
-        const pane = document.getElementById(event.originalTarget.getAttribute("pane"));
+        var pane = document.getElementById(event.originalTarget.getAttribute("pane"));
         this.showPane(pane);
       }
     });
 
-    this.addEventListener("keypress", event => {
-      if ((event.accel || event.metaKey) && event.key == 'w') {
+    this.addEventListener("keypress", (event) => {
+      if((event.accel || event.metaKey) && event.key == 'w') {
         if (this.instantApply)
           window.close();
         event.stopPropagation();
         event.preventDefault();
       } else if (AppConstants.platform == 'win' && event.key == 'F1') {
-        const helpButton = this.getButton("help");
+        var helpButton = this.getButton("help");
         if (helpButton.disabled || helpButton.hidden)
           return;
         this._fireEvent("dialoghelp", this);
@@ -1019,8 +1019,8 @@ class PrefWindow extends MozXULElement {
           <deck anonid="paneDeck" flex="1">
           </deck>
         </hbox>
-        <hbox anonid="dlg-buttons" class="prefWindow-dlgbuttons" pack="end">` +
-        this.osButtons + `
+        <hbox anonid="dlg-buttons" class="prefWindow-dlgbuttons" pack="end">`
+        + this.osButtons + `
         </hbox>
         <hbox>
         </hbox>
@@ -1039,14 +1039,15 @@ class PrefWindow extends MozXULElement {
           <spacer anonid="spacer" flex="1"/>
           <button dlgtype="cancel" class="dialog-button" icon="cancel"/>
           <button dlgtype="accept" class="dialog-button" icon="accept"/>`;
-    return `
+    else
+      return `
           <button dlgtype="extra2" class="dialog-button" hidden="true"/>
           <spacer anonid="spacer" flex="1"/>
           <button dlgtype="accept" class="dialog-button" icon="accept"/>
           <button dlgtype="extra1" class="dialog-button" hidden="true"/>
           <button dlgtype="cancel" class="dialog-button" icon="cancel"/>
           <button dlgtype="help" class="dialog-button" hidden="true" icon="help"/>
-          <button dlgtype="disclosure" class="dialog-button" hidden="true"/>`;
+          <button dlgtype="disclosure" class="dialog-button" hidden="true"/>`;          
   }
 
   connectedCallback() {
@@ -1054,54 +1055,50 @@ class PrefWindow extends MozXULElement {
       return;
     }
 
-    function updateAttribute(name, value) {
-      if (this.hasAttribute(name)) {
-        this.setAttribute(name, value);
-      }
-    }
-
-    const childrenPrefpane = [...this.children].filter(child => child.tagName == 'prefpane');
-    const otherChildren = [...this.children].filter(child => child.tagName != 'prefpane');
-    const fragment = this.fragment;
-    const deck = fragment.querySelector('deck');
-    const fragmentLastChild = fragment.lastElementChild;
+    let childrenPrefpane = [...this.children].filter(child => child.tagName == 'prefpane');
+    let otherChildren = [...this.children].filter(child => child.tagName != 'prefpane');
+    let fragment = this.fragment;
+    let deck = fragment.querySelector('deck');
+    let fragmentLastChild = fragment.lastElementChild;
     this.appendChild(fragment);
     deck.append(...childrenPrefpane);
     fragmentLastChild.append(...otherChildren);
 
-    updateAttribute("dlgbuttons", "accept,cancel");
-    updateAttribute("persist", "lastSelected screenX screenY");
-    // updateAttribute("closebuttonlabel", "&preferencesCloseButton.label;")
-    // updateAttribute("closebuttonaccesskey", "&preferencesCloseButton.accesskey;")
-    updateAttribute("closebuttonlabel", MozXULElement.parseXULToFragment(`<div attr="&uiTour.infoPanel.close;" />`, ["chrome://browser/locale/browser.dtd"]).childNodes[0].attributes[0].value);
-    updateAttribute("closebuttonaccesskey", "C");
-    updateAttribute("role", "dialog");
-    // updateAttribute("title", "&preferencesDefaultTitleWin.title;");
-    updateAttribute("title", MozXULElement.parseXULToFragment(`<div attr="&preferencesCmd2.label;" />`, ["chrome://browser/locale/browser.dtd"]).childNodes[0].attributes[0].value);
+    this.hasAttribute("dlgbuttons") ? '' : this.setAttribute("dlgbuttons", "accept,cancel");
+    this.hasAttribute("persist") ? '' : this.setAttribute("persist", "lastSelected screenX screenY");
+    // this.hasAttribute("closebuttonlabel") ? '' : this.setAttribute("closebuttonlabel", "&preferencesCloseButton.label;");
+    // this.hasAttribute("closebuttonaccesskey") ? '' : this.setAttribute("closebuttonaccesskey", "&preferencesCloseButton.accesskey;");
+    this.hasAttribute("closebuttonlabel") ? '' : this.setAttribute("closebuttonlabel", MozXULElement.parseXULToFragment(`<div attr="&uiTour.infoPanel.close;" />`,["chrome://browser/locale/browser.dtd"]).childNodes[0].attributes[0].value);
+    this.hasAttribute("closebuttonaccesskey") ? '' : this.setAttribute("closebuttonaccesskey", "C");
+    this.hasAttribute("role") ? '' : this.setAttribute("role", "dialog");
+    // this.hasAttribute("title") ? '' : this.setAttribute("title", "&preferencesDefaultTitleWin.title;");
+    this.hasAttribute("title") ? '' : this.setAttribute("title", MozXULElement.parseXULToFragment(`<div attr="&preferencesCmd2.label;" />`,["chrome://browser/locale/browser.dtd"]).childNodes[0].attributes[0].value);
 
-    if (this.hasAttribute("ondialogaccept")) {
-      const f = new Function("event", this.getAttribute("ondialogaccept"));
-      this.addEventListener("dialogaccept", event => f.call(this, event));
+    let global = Components.utils.getGlobalForObject(this);
+
+    if(this.hasAttribute("ondialogaccept")) {
+      let f = new Function("event", this.getAttribute("ondialogaccept"));
+      this.addEventListener("dialogaccept",(event) => f.call(this, event));
     }
-    if (this.hasAttribute("ondialogcancel")) {
-      const f = new Function("event", this.getAttribute("ondialogcancel"));
-      this.addEventListener("dialogcancel", event => f.call(this, event));
+    if(this.hasAttribute("ondialogcancel")) {
+      let f = new Function("event", this.getAttribute("ondialogcancel"));
+      this.addEventListener("dialogcancel",(event) => f.call(this, event));
     }
-    if (this.hasAttribute("ondialogextra1")) {
-      const f = new Function("event", this.getAttribute("ondialogextra1"));
-      this.addEventListener("dialogextra1", event => f.call(this, event));
+    if(this.hasAttribute("ondialogextra1")) {
+      let f = new Function("event", this.getAttribute("ondialogextra1"));
+      this.addEventListener("dialogextra1",(event) => f.call(this, event));
     }
-    if (this.hasAttribute("ondialogextra2")) {
-      const f = new Function("event", this.getAttribute("ondialogextra2"));
-      this.addEventListener("dialogextra2", event => f.call(this, event));
+    if(this.hasAttribute("ondialogextra2")) {
+      let f = new Function("event", this.getAttribute("ondialogextra2"));
+      this.addEventListener("dialogextra2",(event) => f.call(this, event));
     }
-    if (this.hasAttribute("ondialoghelp")) {
-      const f = new Function("event", this.getAttribute("ondialoghelp"));
-      this.addEventListener("dialoghelp", event => f.call(this, event));
+    if(this.hasAttribute("ondialoghelp")) {
+      let f = new Function("event", this.getAttribute("ondialoghelp"));
+      this.addEventListener("dialoghelp",(event) => f.call(this, event));
     }
-    if (this.hasAttribute("ondialogdisclosure")) {
-      const f = new Function("event", this.getAttribute("ondialogdisclosure"));
-      this.addEventListener("dialogdisclosure", event => f.call(this, event));
+    if(this.hasAttribute("ondialogdisclosure")) {
+      let f = new Function("event", this.getAttribute("ondialogdisclosure"));
+      this.addEventListener("dialogdisclosure",(event) => f.call(this, event));
     }
     /**
      * Derived bindings can set this to true to cause us to skip
@@ -1129,27 +1126,27 @@ class PrefWindow extends MozXULElement {
 
     this._mStrBundle = null;
 
-    this.addEventListener("keypress", event => {
+    this.addEventListener("keypress", (event) => {
       if (event.keyCode == KeyEvent.DOM_VK_RETURN) {
         this._hitEnter(event);
       }
-    }, {mozSystemGroup: true});
+    }, { mozSystemGroup: true });
 
-    this.addEventListener("keypress", event => {
+    this.addEventListener("keypress", (event) => {
       if (event.keyCode == KeyEvent.DOM_VK_ESCAPE && !event.defaultPrevented) {
         this.cancelDialog();
       }
-    }, {mozSystemGroup: true});
+    }, { mozSystemGroup: true });
 
     if (AppConstants.platform == "macosx") {
-      this.addEventListener("keypress", event => {
+      this.addEventListener("keypress", (event) => {
         if (event.key == "." && event.metaKey) {
           this.cancelDialog();
         }
       }, true);
     } else {
-      this.addEventListener("focus", event => {
-        const btn = this.getButton(this.defaultButton);
+      this.addEventListener("focus", (event) => {
+        let btn = this.getButton(this.defaultButton);
         if (btn) {
           btn.setAttribute("default",
             event.originalTarget == btn ||
@@ -1160,14 +1157,14 @@ class PrefWindow extends MozXULElement {
     }
 
     // listen for when window is closed via native close buttons
-    window.addEventListener("close", event => {
+    window.addEventListener("close", (event) => {
       if (!document.documentElement.cancelDialog()) {
         event.preventDefault();
       }
     });
 
     // for things that we need to initialize after onload fires
-    window.addEventListener("load", event => this.postLoadInit(event));
+    window.addEventListener("load", (event) => this.postLoadInit(event));
 
     this._l10nButtons = [];
 
@@ -1175,7 +1172,7 @@ class PrefWindow extends MozXULElement {
       get: () => {
         return this.getAttribute("buttons");
       },
-      set: val => {
+      set: (val) => {
         this._configureButtons(val);
         return val;
       }
@@ -1187,17 +1184,17 @@ class PrefWindow extends MozXULElement {
           return this.getAttribute("defaultButton");
         return "accept"; // default to the accept button
       },
-      set: val => {
+      set: (val) => {
         this._setDefaultButton(val);
         return val;
       }
     });
 
-    this.cancelDialog = function() {
+    this.cancelDialog = function () {
       return this._doButtonCommand("cancel");
     };
 
-    this.getButton = function(aDlgType) {
+    this.getButton = function (aDlgType) {
       return this._buttons[aDlgType];
     };
 
@@ -1207,14 +1204,14 @@ class PrefWindow extends MozXULElement {
           // need to create string bundle manually instead of using <xul:stringbundle/>
           // see bug 63370 for details
           this._mStrBundle = Cc["@mozilla.org/intl/stringbundle;1"]
-              .getService(Ci.nsIStringBundleService)
-              .createBundle("chrome://global/locale/dialog.properties");
+                               .getService(Ci.nsIStringBundleService)
+                               .createBundle("chrome://global/locale/dialog.properties");
         }
         return this._mStrBundle;
       }
     });
 
-    this.postLoadInit = function() {
+    this.postLoadInit = function (aEvent) {
       function focusInit() {
         const dialog = document.documentElement;
         const defaultButton = dialog.getButton(dialog.defaultButton);
@@ -1226,18 +1223,18 @@ class PrefWindow extends MozXULElement {
 
           focusedElt = document.commandDispatcher.focusedElement;
           if (focusedElt) {
-            const initialFocusedElt = focusedElt;
+            var initialFocusedElt = focusedElt;
             while (focusedElt.localName == "tab" ||
               focusedElt.getAttribute("noinitialfocus") == "true") {
               document.commandDispatcher.advanceFocusIntoSubtree(focusedElt);
               focusedElt = document.commandDispatcher.focusedElement;
               if (focusedElt)
-                if (focusedElt == initialFocusedElt) {
-                  if (focusedElt.getAttribute("noinitialfocus") == "true") {
-                    focusedElt.blur();
-                  }
-                  break;
+              if (focusedElt == initialFocusedElt) {
+                if (focusedElt.getAttribute("noinitialfocus") == "true") {
+                  focusedElt.blur();
                 }
+                break;
+              }
             }
 
             if (initialFocusedElt.localName == "tab") {
@@ -1270,9 +1267,9 @@ class PrefWindow extends MozXULElement {
       }
     };
 
-    this._configureButtons = function(aButtons) {
+    this._configureButtons = function (aButtons) {
       // by default, get all the anonymous button elements
-      const buttons = {};
+      var buttons = {};
       this._buttons = buttons;
       buttons.accept = document.getElementsByAttribute("dlgtype", "accept")[0];
       buttons.cancel = document.getElementsByAttribute("dlgtype", "cancel")[0];
@@ -1280,22 +1277,23 @@ class PrefWindow extends MozXULElement {
       buttons.extra2 = document.getElementsByAttribute("dlgtype", "extra2")[0];
       buttons.help = document.getElementsByAttribute("dlgtype", "help")[0];
       buttons.disclosure = document.getElementsByAttribute("dlgtype", "disclosure")[0];
-
-      for (const button of Object.values(buttons)) {
-        customElements.upgrade(button);
+      for (let button in buttons) {
+        customElements.upgrade(buttons[button]);
       }
       // look for any overriding explicit button elements
-      const exBtns = this.getElementsByAttribute("dlgtype", "*");
-      for (let i = 0; i < exBtns.length; ++i) {
-        const dlgtype = exBtns[i].getAttribute("dlgtype");
+      var exBtns = this.getElementsByAttribute("dlgtype", "*");
+      var dlgtype;
+      var i;
+      for (i = 0; i < exBtns.length; ++i) {
+        dlgtype = exBtns[i].getAttribute("dlgtype");
         if (buttons[dlgtype] != exBtns[i]) {
           buttons[dlgtype].hidden = true; // hide the anonymous button
           buttons[dlgtype] = exBtns[i];
         }
       }
       // add the label and oncommand handler to each button
-      for (const dlgtype of Object.keys(buttons)) {
-        const button = buttons[dlgtype];
+      for (dlgtype in buttons) {
+        var button = buttons[dlgtype];
         button.addEventListener("command", this._handleButtonCommand, true);
         // don't override custom labels with pre-defined labels on explicit buttons
         if (!button.hasAttribute("label")) {
@@ -1309,7 +1307,7 @@ class PrefWindow extends MozXULElement {
             this._l10nButtons.push(button);
           } else if (dlgtype != "extra1" && dlgtype != "extra2") {
             button.setAttribute("label", this.mStrBundle.GetStringFromName("button-" + dlgtype));
-            const accessKey = this.mStrBundle.GetStringFromName("accesskey-" + dlgtype);
+            var accessKey = this.mStrBundle.GetStringFromName("accesskey-" + dlgtype);
             if (accessKey)
               button.setAttribute("accesskey", accessKey);
           }
@@ -1340,42 +1338,34 @@ class PrefWindow extends MozXULElement {
         }
       }
       // ensure that hitting enter triggers the default button command
-      // eslint-disable-next-line no-self-assign
       this.defaultButton = this.defaultButton;
       // if there is a special button configuration, use it
       if (aButtons) {
         // expect a comma delimited list of dlgtype values
-        const list = aButtons.split(",");
+        var list = aButtons.split(",");
         // mark shown dlgtypes as true
-        const shown = {
-          accept: false,
-          cancel: false,
-          help: false,
-          disclosure: false,
-          extra1: false,
-          extra2: false
-        };
-        for (let i = 0; i < list.length; ++i)
+        var shown = { accept: false, cancel: false, help: false,
+                      disclosure: false, extra1: false, extra2: false };
+        for (i = 0; i < list.length; ++i)
           shown[list[i].replace(/ /g, "")] = true;
         // hide/show the buttons we want
-        for (const dlgtype of Object.keys(buttons)) {
+        for (dlgtype in buttons)
           buttons[dlgtype].hidden = !shown[dlgtype];
-        }
         // show the spacer on Windows only when the extra2 button is present
         if (/Win/.test(navigator.platform)) {
-          const spacer = document.getElementsByAttribute("anonid", "spacer")[0];
+          var spacer = document.getElementsByAttribute("anonid", "spacer")[0];
           spacer.removeAttribute("hidden");
           spacer.setAttribute("flex", shown.extra2 ? "1" : "0");
         }
       }
     };
 
-    this._setDefaultButton = function(aNewDefault) {
+    this._setDefaultButton = function (aNewDefault) {
       // remove the default attribute from the previous default button, if any
-      const oldDefaultButton = this.getButton(this.defaultButton);
+      var oldDefaultButton = this.getButton(this.defaultButton);
       if (oldDefaultButton)
         oldDefaultButton.removeAttribute("default");
-      const newDefaultButton = this.getButton(aNewDefault);
+      var newDefaultButton = this.getButton(aNewDefault);
       if (newDefaultButton) {
         this.setAttribute("defaultButton", aNewDefault);
         newDefaultButton.setAttribute("default", "true");
@@ -1386,20 +1376,20 @@ class PrefWindow extends MozXULElement {
       }
     };
 
-    this._handleButtonCommand = function(aEvent) {
+    this._handleButtonCommand = function (aEvent) {
       return document.documentElement._doButtonCommand(
-        aEvent.target.getAttribute("dlgtype"));
+                                    aEvent.target.getAttribute("dlgtype"));
     };
 
-    this._doButtonCommand = function(aDlgType) {
-      const button = this.getButton(aDlgType);
+    this._doButtonCommand = function (aDlgType) {
+      var button = this.getButton(aDlgType);
       if (!button.disabled) {
-        const noCancel = this._fireButtonEvent(aDlgType);
+        var noCancel = this._fireButtonEvent(aDlgType);
         if (noCancel) {
           if (aDlgType == "accept" || aDlgType == "cancel") {
-            const closingEvent = new CustomEvent("dialogclosing", {
+            var closingEvent = new CustomEvent("dialogclosing", {
               bubbles: true,
-              detail: {button: aDlgType},
+              detail: { button: aDlgType },
             });
             this.dispatchEvent(closingEvent);
             window.close();
@@ -1410,18 +1400,18 @@ class PrefWindow extends MozXULElement {
       return true;
     };
 
-    this._fireButtonEvent = function(aDlgType) {
-      const event = document.createEvent("Events");
+    this._fireButtonEvent = function (aDlgType) {
+      var event = document.createEvent("Events");
       event.initEvent("dialog" + aDlgType, true, true);
       // handle dom event handlers
       return this.dispatchEvent(event);
     };
 
-    this._hitEnter = function(evt) {
+    this._hitEnter = function (evt) {
       if (evt.defaultPrevented)
         return;
 
-      const btn = this.getButton(this.defaultButton);
+      var btn = this.getButton(this.defaultButton);
       if (btn)
         this._doButtonCommand(this.defaultButton);
     };
@@ -1430,15 +1420,15 @@ class PrefWindow extends MozXULElement {
 
     if (this.type != "child") {
       if (!this._instantApplyInitialized) {
-        const psvc = Cc["@mozilla.org/preferences-service;1"]
-            .getService(Ci.nsIPrefBranch);
+        let psvc = Cc["@mozilla.org/preferences-service;1"]
+                     .getService(Ci.nsIPrefBranch);
         this.instantApply = psvc.getBoolPref("browser.preferences.instantApply");
       }
       if (this.instantApply) {
-        const docElt = document.documentElement;
-        const acceptButton = docElt.getButton("accept");
+        var docElt = document.documentElement;
+        var acceptButton = docElt.getButton("accept");
         acceptButton.hidden = true;
-        const cancelButton = docElt.getButton("cancel");
+        var cancelButton = docElt.getButton("cancel");
         if (/Mac/.test(navigator.platform)) {
           // no buttons on Mac except Help
           cancelButton.hidden = true;
@@ -1455,9 +1445,9 @@ class PrefWindow extends MozXULElement {
       }
     }
     this.setAttribute("animated", this._shouldAnimate ? "true" : "false");
-    const panes = this.preferencePanes;
+    var panes = this.preferencePanes;
 
-    let lastPane = null;
+    var lastPane = null;
     if (this.lastSelected) {
       lastPane = document.getElementById(this.lastSelected);
       if (!lastPane) {
@@ -1465,7 +1455,7 @@ class PrefWindow extends MozXULElement {
       }
     }
 
-    for (let i = 0; i < panes.length; ++i) {
+    for (var i = 0; i < panes.length; ++i) {
       this._makePaneButton(panes[i]);
       if (panes[i].loaded) {
         // Inline pane content, fire load event to force initialization.
@@ -1531,20 +1521,20 @@ class PrefWindow extends MozXULElement {
   }
 
   set currentPane(val) {
-    return (this._currentPane = val);
+    return this._currentPane = val;
   }
 
   get _shouldAnimate() {
-    const psvc = Cc["@mozilla.org/preferences-service;1"]
-        .getService(Ci.nsIPrefBranch);
+    var psvc = Cc["@mozilla.org/preferences-service;1"]
+                 .getService(Ci.nsIPrefBranch);
     return psvc.getBoolPref("browser.preferences.animateFadeIn",
-      /Mac/.test(navigator.platform));
+                            /Mac/.test(navigator.platform));
   }
 
   get _sizeIncrement() {
-    const lastSelectedPane = document.getElementById(this.lastSelected);
-    let increment = this._animateIncrement * this._multiplier;
-    const newHeight = this._currentHeight + increment;
+    var lastSelectedPane = document.getElementById(this.lastSelected);
+    var increment = this._animateIncrement * this._multiplier;
+    var newHeight = this._currentHeight + increment;
     if ((this._multiplier > 0 && this._currentHeight >= lastSelectedPane.contentHeight) ||
         (this._multiplier < 0 && this._currentHeight <= lastSelectedPane.contentHeight))
       return 0;
@@ -1556,7 +1546,7 @@ class PrefWindow extends MozXULElement {
   }
 
   _makePaneButton(aPaneElement) {
-    const radio = document.createXULElement("radio");
+    var radio = document.createXULElement("radio");
     radio.setAttribute("is", 'pane-button');
     radio.setAttribute("pane", aPaneElement.id);
     radio.setAttribute("value", aPaneElement.id);
@@ -1576,29 +1566,30 @@ class PrefWindow extends MozXULElement {
 
     this._selector.selectedItem = document.getElementsByAttribute("pane", aPaneElement.id)[0];
     if (!aPaneElement.loaded) {
-      const OverlayLoadObserver = function(aPane) {
+      let OverlayLoadObserver = function(aPane) {
         this._pane = aPane;
-      };
+      }
       OverlayLoadObserver.prototype = {
         _outer: this,
-        observe() {
+        observe(aSubject, aTopic, aData) {
           this._pane.loaded = true;
           this._outer._fireEvent("paneload", this._pane);
           this._outer._selectPane(this._pane);
         }
       };
 
-      const obs = new OverlayLoadObserver(aPaneElement);
+      var obs = new OverlayLoadObserver(aPaneElement);
 
-      // Pane overlay have to be move to earlier stage to load properly but not without issue see ln 601
+      //Pane overlay have to be move to earlier stage to load properly but not without issue see ln 601
       // document.loadOverlay(aPaneElement.src, obs);
 
       // Components.utils.import("chrome://tabmixplus/content/ChromeManifest.jsm");
       // Components.utils.import("chrome://tabmixplus/content/Overlays.jsm");
 
-      // const ov = new Overlays(new ChromeManifest(),document.defaultView);
+      // let ov = new Overlays(new ChromeManifest(),document.defaultView);
       // ov.load(aPaneElement.src);
       obs.observe();
+
     } else
       this._selectPane(aPaneElement);
   }
@@ -1606,12 +1597,12 @@ class PrefWindow extends MozXULElement {
   _fireEvent(aEventName, aTarget) {
     // Panel loaded, synthesize a load event.
     try {
-      const event = document.createEvent("Events");
+      var event = document.createEvent("Events");
       event.initEvent(aEventName, true, true);
-      let cancel = !aTarget.dispatchEvent(event);
+      var cancel = !aTarget.dispatchEvent(event);
       if (aTarget.hasAttribute("on" + aEventName)) {
-        const fn = new Function("event", aTarget.getAttribute("on" + aEventName));
-        const rv = fn.call(aTarget, event);
+        var fn = new Function("event", aTarget.getAttribute("on" + aEventName));
+        var rv = fn.call(aTarget, event);
         if (!rv)
           cancel = true;
       }
@@ -1624,11 +1615,11 @@ class PrefWindow extends MozXULElement {
 
   _selectPane(aPaneElement) {
     if (/Mac/.test(navigator.platform)) {
-      const paneTitle = aPaneElement.label;
+      var paneTitle = aPaneElement.label;
       if (paneTitle != "")
         document.title = paneTitle;
     }
-    const helpButton = document.documentElement.getButton("help");
+    var helpButton = document.documentElement.getButton("help");
     if (aPaneElement.helpTopic)
       helpButton.hidden = false;
     else
@@ -1636,8 +1627,8 @@ class PrefWindow extends MozXULElement {
 
     // Find this pane's index in the deck and set the deck's
     // selectedIndex to that value to switch to it.
-    const prefpanes = this.preferencePanes;
-    for (let i = 0; i < prefpanes.length; ++i) {
+    var prefpanes = this.preferencePanes;
+    for (var i = 0; i < prefpanes.length; ++i) {
       if (prefpanes[i] == aPaneElement) {
         this._paneDeck.selectedIndex = i;
 
@@ -1654,7 +1645,7 @@ class PrefWindow extends MozXULElement {
             window.sizeToContent();
           }
 
-          const oldPane = this.lastSelected ? document.getElementById(this.lastSelected) : this.preferencePanes[0];
+          var oldPane = this.lastSelected ? document.getElementById(this.lastSelected) : this.preferencePanes[0];
           oldPane.selected = !(aPaneElement.selected = true);
           this.lastSelected = aPaneElement.id;
           this.currentPane = aPaneElement;
@@ -1665,21 +1656,21 @@ class PrefWindow extends MozXULElement {
             aPaneElement.style.opacity = 0.0;
             this.animate(oldPane, aPaneElement);
           } else if (!this._shouldAnimate && prefpanes.length > 1) {
-            const targetHeight = parseInt(window.getComputedStyle(this._paneDeckContainer).height);
-            let verticalPadding = parseInt(window.getComputedStyle(aPaneElement).paddingTop);
+            var targetHeight = parseInt(window.getComputedStyle(this._paneDeckContainer).height);
+            var verticalPadding = parseInt(window.getComputedStyle(aPaneElement).paddingTop);
             verticalPadding += parseInt(window.getComputedStyle(aPaneElement).paddingBottom);
             if (aPaneElement.contentHeight > targetHeight - verticalPadding) {
               // To workaround the bottom border of a groupbox from being
               // cutoff an hbox with a class of bottomBox may enclose it.
               // This needs to include its padding to resize properly.
               // See bug 394433
-              let bottomPadding = 0;
-              const bottomBox = aPaneElement.getElementsByAttribute("class", "bottomBox")[0];
+              var bottomPadding = 0;
+              var bottomBox = aPaneElement.getElementsByAttribute("class", "bottomBox")[0];
               if (bottomBox)
                 bottomPadding = parseInt(window.getComputedStyle(bottomBox).paddingBottom);
               window.innerHeight += bottomPadding + verticalPadding + aPaneElement.contentHeight - targetHeight;
             }
-
+            
             // XXX rstrong - extend the contents of the prefpane to
             // prevent elements from being cutoff (see bug 349098).
             if (aPaneElement.contentHeight + verticalPadding < targetHeight)
@@ -1693,10 +1684,10 @@ class PrefWindow extends MozXULElement {
 
   animate(aOldPane, aNewPane) {
     // if we are already resizing, use currentHeight
-    const oldHeight = this._currentHeight ? this._currentHeight : aOldPane.contentHeight;
+    var oldHeight = this._currentHeight ? this._currentHeight : aOldPane.contentHeight;
 
     this._multiplier = aNewPane.contentHeight > oldHeight ? 1 : -1;
-    const sizeDelta = Math.abs(oldHeight - aNewPane.contentHeight);
+    var sizeDelta = Math.abs(oldHeight - aNewPane.contentHeight);
     this._animateRemainder = sizeDelta % this._animateIncrement;
 
     this._setUpAnimationTimer(oldHeight);
@@ -1705,17 +1696,17 @@ class PrefWindow extends MozXULElement {
   _setUpAnimationTimer(aStartHeight) {
     if (!this._animateTimer)
       this._animateTimer = Cc["@mozilla.org/timer;1"]
-          .createInstance(Ci.nsITimer);
+                             .createInstance(Ci.nsITimer);
     else
       this._animateTimer.cancel();
     this._currentHeight = aStartHeight;
 
-    const callback = () => {
+    let callback = () => {
       if (!document && this._animateTimer) {
         this._animateTimer.cancel();
       }
 
-      const increment = this._sizeIncrement;
+      var increment = this._sizeIncrement;
       if (increment != 0) {
         window.innerHeight += increment;
         this._currentHeight += increment;
@@ -1726,26 +1717,26 @@ class PrefWindow extends MozXULElement {
     };
 
     this._animateTimer.initWithCallback(callback, this._scrollDelay,
-      this._animateTimer.TYPE_REPEATING_SLACK);
+                                        this._animateTimer.TYPE_REPEATING_SLACK);
   }
 
-  _setUpFadeTimer() {
+  _setUpFadeTimer(aStartHeight) {
     if (!this._fadeTimer)
       this._fadeTimer = Cc["@mozilla.org/timer;1"]
-          .createInstance(Ci.nsITimer);
+                          .createInstance(Ci.nsITimer);
     else
       this._fadeTimer.cancel();
 
     this._fadeTimer.initWithCallback(this, this._fadeDelay,
-      Ci.nsITimer.TYPE_REPEATING_SLACK);
+                                     Ci.nsITimer.TYPE_REPEATING_SLACK);
 
-    const callback = () => {
+    let callback = () => {
       if (!document && this._fadeTimer) {
         this._fadeTimer.cancel();
       }
 
-      const elt = document.getElementById(this.lastSelected);
-      const newOpacity = parseFloat(window.getComputedStyle(elt).opacity) + this._fadeIncrement;
+      var elt = document.getElementById(this.lastSelected);
+      var newOpacity = parseFloat(window.getComputedStyle(elt).opacity) + this._fadeIncrement;
       if (newOpacity < 1.0)
         elt.style.opacity = newOpacity;
       else {
@@ -1755,7 +1746,8 @@ class PrefWindow extends MozXULElement {
     };
 
     this._fadeTimer.initWithCallback(callback, this._fadeDelay,
-      this._fadeTimer.TYPE_REPEATING_SLACK);
+                                        this._fadeTimer.TYPE_REPEATING_SLACK);
+
   }
 
   addPane(aPaneElement) {
@@ -1770,16 +1762,16 @@ class PrefWindow extends MozXULElement {
   }
 
   openWindow(aWindowType, aURL, aFeatures, aParams) {
-    const wm = Cc["@mozilla.org/appshell/window-mediator;1"]
-        .getService(Ci.nsIWindowMediator);
-    let win = aWindowType ? wm.getMostRecentWindow(aWindowType) : null;
+    var wm = Cc["@mozilla.org/appshell/window-mediator;1"]
+               .getService(Ci.nsIWindowMediator);
+    var win = aWindowType ? wm.getMostRecentWindow(aWindowType) : null;
     if (win) {
       if ("initWithParams" in win)
         win.initWithParams(aParams);
       win.focus();
     } else {
-      const features = "resizable,dialog=no,centerscreen" + (aFeatures != "" ? ("," + aFeatures) : "");
-      const parentWindow = (this.instantApply || !window.opener || window.opener.closed) ? window : window.opener;
+      var features = "resizable,dialog=no,centerscreen" + (aFeatures != "" ? ("," + aFeatures) : "");
+      var parentWindow = (this.instantApply || !window.opener || window.opener.closed) ? window : window.opener;
       win = parentWindow.openDialog(aURL, "_blank", features, aParams);
     }
     return win;
@@ -1789,4 +1781,4 @@ class PrefWindow extends MozXULElement {
 customElements.define("preferences", Preferences);
 customElements.define("preference", Preference);
 customElements.define("prefpane", PrefPane);
-customElements.define("pane-button", PaneButton, {extends: "radio"});
+customElements.define("pane-button", PaneButton, { extends: "radio" });
